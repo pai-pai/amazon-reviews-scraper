@@ -38,13 +38,18 @@ def process_page(url):
                 .string.replace(' out of 5 stars', '')
             title = review.find('a', {'data-hook': 'review-title'}).find('span').string
             location_and_date = review.find('span', {'data-hook': 'review-date'}).string
-            options = ' | '.join(review.find('a', {'data-hook': 'format-strip'})\
-                .contents[::2])
+            options = review.find('a', {'data-hook': 'format-strip'})
+            options = ' | '.join(options.contents[::2]) if options else None
             verified_purchase = bool(review.find('span', {'data-hook': 'avp-badge'}))
-            text = review.find('span', {'data-hook': 'review-body'})\
-                .find('span', recursive=False).text
+            text = review.find('span', {'data-hook': 'review-body'})
+            text = text.find('span', recursive=False) if text else None
+            text = text.text if text else None
             helpful_count = review.find('span', {'data-hook': 'helpful-vote-statement'})
             helpful_count = helpful_count.string if helpful_count else None
+            if options is None:
+                logging.warning('Options for "%s" review are ommitted', title)
+            if text is None:
+                logging.warning('Review text for "%s" review is ommitted', title)
             logging.debug('Got review with title "%s"', title)
             csv_writer.writerow([product_name, rating, title, location_and_date,
                                  options, verified_purchase, text, helpful_count])
@@ -57,13 +62,13 @@ def parse_reviews(base_url: str):
         csv_writer = csv.writer(file_)
         csv_writer.writerow(['product_name', 'rating', 'title', 'location_and_date',
                              'options', 'verified_purchase', 'text', 'helpful_count'])
-    page_number = 0
+    page_number = 1
     next_page_available = True
     while next_page_available:
-        page_number += 1
         url = f'{base_url}?ie=UTF8&pageNumber={page_number}'
         logging.debug('Going to %s ...', url)
         next_page_available = process_page(url)
+        page_number += 1
 
 
 if __name__ == '__main__':
