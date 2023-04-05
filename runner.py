@@ -29,6 +29,7 @@ def process_page(url):
     response = requests.get(url, headers=CHROME_HEADERS, timeout=180)
     logging.debug(response)
     soup = BeautifulSoup(response.text, 'html.parser')
+    product_name = soup.find('a', {'data-hook': 'product-link'}).string
     reviews = soup.find_all('div', {'data-hook': 'review'})
     with open(RESULT_FILE, 'a', encoding='utf-8') as file_:
         csv_writer = csv.writer(file_)
@@ -37,16 +38,16 @@ def process_page(url):
                 .string.replace(' out of 5 stars', '')
             title = review.find('a', {'data-hook': 'review-title'}).find('span').string
             location_and_date = review.find('span', {'data-hook': 'review-date'}).string
-            option, setup, offer_type = review.find('a', {'data-hook': 'format-strip'})\
-                .contents[::2]
+            options = ' | '.join(review.find('a', {'data-hook': 'format-strip'})\
+                .contents[::2])
             verified_purchase = bool(review.find('span', {'data-hook': 'avp-badge'}))
             text = review.find('span', {'data-hook': 'review-body'})\
                 .find('span', recursive=False).text
             helpful_count = review.find('span', {'data-hook': 'helpful-vote-statement'})
             helpful_count = helpful_count.string if helpful_count else None
             logging.debug('Got review with title "%s"', title)
-            csv_writer.writerow([rating, title, location_and_date, option, setup,
-                                 offer_type, verified_purchase, text, helpful_count])
+            csv_writer.writerow([product_name, rating, title, location_and_date,
+                                 options, verified_purchase, text, helpful_count])
     next_page_available = soup.find(id='cm_cr-pagination_bar').find('li', class_='a-last').find('a')
     return next_page_available
 
@@ -54,9 +55,8 @@ def process_page(url):
 def parse_reviews(base_url: str):
     with open(RESULT_FILE, 'w', encoding='utf-8') as file_:
         csv_writer = csv.writer(file_)
-        csv_writer.writerow(['rating', 'title', 'location_and_date', 'option',
-                             'setup', 'offer_type', 'verified_purchase',
-                             'text', 'helpful_count'])
+        csv_writer.writerow(['product_name', 'rating', 'title', 'location_and_date',
+                             'options', 'verified_purchase', 'text', 'helpful_count'])
     page_number = 0
     next_page_available = True
     while next_page_available:
