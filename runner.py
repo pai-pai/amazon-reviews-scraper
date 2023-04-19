@@ -9,18 +9,22 @@ logging.basicConfig(level=logging.DEBUG, filename='logs.log')
 
 
 CHROME_HEADERS = {
-    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,'
-        'image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,'
+        'image/webp,image/apng,*/*;q=0.8',
     'accept-encoding': 'gzip, deflate, br',
-    'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
+    'accept-language': 'en-GB,en;q=0.7',
     'cache-control': 'max-age=0',
+    'sec-ch-ua': '"Chromium";v="112", "Brave";v="112", "Not:A-Brand";v="99"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': "macOS",
     'sec-fetch-dest': 'document',
     'sec-fetch-mode': 'navigate',
-    'sec-fetch-site': 'none',
+    'sec-fetch-site': 'same-origin',
     'sec-fetch-user': '?1',
+    'sec-gpc': '1',
     'upgrade-insecure-requests': '1',
     'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
-        '(KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36',
+        '(KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
 }
 RESULT_FILE = 'reviews.csv'
 
@@ -34,8 +38,14 @@ def process_page(url):
     with open(RESULT_FILE, 'a', encoding='utf-8') as file_:
         csv_writer = csv.writer(file_)
         for review in reviews:
-            rating = review.find('i', {'data-hook': 'review-star-rating'}).find('span')\
-                .string.replace(' out of 5 stars', '')
+            try:
+                rating = review.find('i', {'data-hook': 'review-star-rating'}).find('span')\
+                    .string.replace(' out of 5 stars', '')
+            except AttributeError:
+                # this exception occures when all original customers reviews are parsed and
+                # current review is a review from 'From other countries' section
+                # so, return with no-next-page flag
+                return False
             title = review.find('a', {'data-hook': 'review-title'}).find('span').string
             location_and_date = review.find('span', {'data-hook': 'review-date'}).string
             options = review.find('a', {'data-hook': 'format-strip'})
@@ -65,7 +75,7 @@ def parse_reviews(base_url: str):
     page_number = 1
     next_page_available = True
     while next_page_available:
-        url = f'{base_url}?ie=UTF8&pageNumber={page_number}'
+        url = f'{base_url}?pageNumber={page_number}'
         logging.debug('Going to %s ...', url)
         next_page_available = process_page(url)
         page_number += 1
